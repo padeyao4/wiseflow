@@ -1,43 +1,43 @@
 #!/bin/bash
 
-# 1. Check if pocketbase exists
+# 1. 检查 pocketbase 是否存在
 check_pocketbase() {
     if [ -f "./pb/pocketbase" ]; then
-        echo "Detected ./pb/pocketbase already exists, please delete it manually and try again"
+        echo "检测到 ./pb/pocketbase 已经存在，请手动删除并重试"
         exit 1
     fi
     
-    # Create directory if it doesn't exist
+    # 如果目录不存在，则创建目录
     if [ ! -d "./pb" ]; then
         mkdir -p ./pb
     fi
 }
 
-# 2. Get available versions
+# 2. 获取可用版本
 get_versions() {
-    echo "Fetching available versions..."
+    echo "正在获取可用版本..."
     VERSIONS=($(curl -s https://api.github.com/repos/pocketbase/pocketbase/releases | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'))
     LATEST_VERSION=${VERSIONS[0]}
 }
 
-# 3. Select version with arrow keys
+# 3. 使用箭头键选择版本
 select_version() {
-    # Clear screen
+    # 清屏
     clear
     
-    # Array to store versions
+    # 存储版本的数组
     local versions=("${VERSIONS[@]}")
     local current=0
     local key
     local total=${#versions[@]}
     
     while true; do
-        # Clear screen
+        # 清屏
         clear
-        echo "Available versions (Use ↑↓ arrows to select, Enter to confirm):"
+        echo "可用版本（使用 ↑↓ 箭头选择，按 Enter 确认）："
         echo "----------------------------------------"
         
-        # Display versions
+        # 显示版本
         for i in "${!versions[@]}"; do
             if [ $i -eq $current ]; then
                 echo -e "\033[32m-> ${versions[$i]}\033[0m"
@@ -46,38 +46,38 @@ select_version() {
             fi
         done
         
-        # Read a single character
+        # 读取一个字符
         read -rsn1 key
         
-        # Special key sequences
+        # 特殊键序列
         if [[ $key = $'\x1b' ]]; then
             read -rsn2 key
             case $key in
-                '[A') # Up arrow
+                '[A') # 上箭头
                     ((current--))
                     [ $current -lt 0 ] && current=$((total - 1))
                     ;;
-                '[B') # Down arrow
+                '[B') # 下箭头
                     ((current++))
                     [ $current -ge $total ] && current=0
                     ;;
             esac
-        elif [[ $key = "" ]]; then # Enter key
+        elif [[ $key = "" ]]; then # Enter 键
             SELECTED_VERSION=${versions[$current]}
             break
         fi
     done
     
-    echo -e "\nSelected version: $SELECTED_VERSION"
+    echo -e "\n选择的版本: $SELECTED_VERSION"
 }
 
-# 4. Download corresponding system version
+# 4. 下载对应系统版本
 download_pocketbase() {
-    # Detect OS and architecture
+    # 检测操作系统和架构
     OS=$(uname -s | tr '[:upper:]' '[:lower:]')
     ARCH=$(uname -m)
     
-    # Remove 'v' prefix from version number
+    # 从版本号中移除 'v' 前缀
     VERSION_NUM=${SELECTED_VERSION#v}
     
     case "$OS" in
@@ -94,50 +94,50 @@ download_pocketbase() {
             esac
             ;;
         *)
-            echo "Unsupported operating system"
+            echo "不支持的操作系统"
             exit 1
             ;;
     esac
 
-    # Download and extract
+    # 下载并解压
     DOWNLOAD_URL="https://github.com/pocketbase/pocketbase/releases/download/${SELECTED_VERSION}/${FILENAME}"
-    echo "Downloading: $DOWNLOAD_URL"
+    echo "正在下载: $DOWNLOAD_URL"
     
-    # Download with retry mechanism
+    # 带重试机制的下载
     MAX_RETRIES=3
     RETRY_COUNT=0
     
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
         if curl -L "$DOWNLOAD_URL" -o "./pb/${FILENAME}" --fail --silent --show-error; then
             if [ -f "./pb/${FILENAME}" ] && [ -s "./pb/${FILENAME}" ]; then
-                echo "Download completed successfully"
+                echo "下载成功"
                 break
             fi
         fi
         
         RETRY_COUNT=$((RETRY_COUNT + 1))
         if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-            echo "Download failed, retrying ($RETRY_COUNT/$MAX_RETRIES)..."
+            echo "下载失败，正在重试 ($RETRY_COUNT/$MAX_RETRIES)..."
             sleep 2
         else
-            echo "Download failed after $MAX_RETRIES attempts"
+            echo "经过 $MAX_RETRIES 次尝试后下载失败"
             exit 1
         fi
     done
     
-    # Extract only the pocketbase executable
+    # 仅提取 pocketbase 可执行文件
     cd ./pb || exit 1
     
     if ! unzip -j -o "${FILENAME}" "pocketbase" > /dev/null 2>&1; then
-        echo "Failed to extract pocketbase executable"
+        echo "提取 pocketbase 可执行文件失败"
         cd ..
         exit 1
     fi
     
-    rm "${FILENAME}"  # Remove the zip file
+    rm "${FILENAME}"  # 删除 zip 文件
     
     if [ ! -f "pocketbase" ]; then
-        echo "pocketbase executable not found after extraction"
+        echo "提取后未找到 pocketbase 可执行文件"
         cd ..
         exit 1
     fi
@@ -145,10 +145,10 @@ download_pocketbase() {
     chmod +x pocketbase
     cd ..
     
-    echo "Successfully installed pocketbase"
+    echo "成功安装 pocketbase"
 }
 
-# Validate email format
+# 验证电子邮件格式
 validate_email() {
     local email=$1
     if [[ ! "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
@@ -157,42 +157,42 @@ validate_email() {
     return 0
 }
 
-# Validate password requirements
+# 验证密码要求
 validate_password() {
     local password=$1
-    # Check minimum length of 8 characters
+    # 检查最小长度为 8 个字符
     if [ ${#password} -lt 8 ]; then
         return 1
     fi
     return 0
 }
 
-# 5. Configure admin account
+# 5. 配置管理员账户
 configure_admin() {
     local valid_input=false
     
     while [ "$valid_input" = false ]; do
-        # Get email
+        # 获取电子邮件
         while true; do
-            echo "Please set superuser email:"
+            echo "请设置超级用户电子邮件:"
             read EMAIL
             
             if validate_email "$EMAIL"; then
                 break
             else
-                echo "Invalid email format. Please try again."
+                echo "电子邮件格式无效。请重试。"
             fi
         done
         
-        # Get password
+        # 获取密码
         while true; do
-            echo "Please set superuser password (minimum 8 characters):"
+            echo "请设置超级用户密码（至少 8 个字符）："
             read -s PASSWORD
             echo
             
             if validate_password "$PASSWORD"; then
-                # Confirm password
-                echo "Please confirm password:"
+                # 确认密码
+                echo "请确认密码："
                 read -s PASSWORD_CONFIRM
                 echo
                 
@@ -200,10 +200,10 @@ configure_admin() {
                     valid_input=true
                     break
                 else
-                    echo "Passwords do not match. Please try again."
+                    echo "密码不匹配。请重试。"
                 fi
             else
-                echo "Password must be at least 8 characters long. Please try again."
+                echo "密码必须至少 8 个字符。请重试。"
             fi
         done
     done
@@ -211,48 +211,48 @@ configure_admin() {
     cd ./pb
     ./pocketbase migrate up
     
-    # Try to create superuser
+    # 尝试创建超级用户
     if ! ./pocketbase --dev superuser create "$EMAIL" "$PASSWORD"; then
-        echo "Failed to create superuser. Please check the error message above."
+        echo "创建超级用户失败。请检查上面的错误信息。"
         exit 1
     fi
     cd ..
     
-    echo "Superuser created successfully!"
+    echo "超级用户创建成功！"
 }
 
-# 6. Configure environment file
+# 6. 配置环境文件
 configure_env() {
-    # Create .env if it doesn't exist
+    # 如果 .env 文件不存在，则创建
     if [ ! -f "./core/.env" ]; then
         # mkdir -p ./core
         cp env_sample ./core/.env
-        echo "Created new .env file from template"
+        echo "从模板创建新的 .env 文件"
     else
-        echo "Found existing .env file"
+        echo "找到现有的 .env 文件"
     fi
     
-    # Update authentication info in environment file using sed
+    # 使用 sed 更新环境文件中的认证信息
     if [ "$(uname)" = "Darwin" ]; then
-        # macOS version
+        # macOS 版本
         sed -i '' 's/export PB_API_AUTH="[^"]*"/export PB_API_AUTH="'$EMAIL'|'$PASSWORD'"/' "./core/.env"
     else
-        # Linux version
+        # Linux 版本
         sed -i 's/export PB_API_AUTH="[^"]*"/export PB_API_AUTH="'$EMAIL'|'$PASSWORD'"/' "./core/.env"
     fi
     
-    echo "Updated PB_API_AUTH in .env with new credentials"
+    echo "在 .env 中更新了 PB_API_AUTH 的新凭据"
 }
 
 main() {
-    echo "Starting PocketBase installation..."
+    echo "开始 PocketBase 安装..."
     check_pocketbase
     get_versions
     select_version
     download_pocketbase
     configure_admin
     configure_env
-    echo "PocketBase installation completed!"
+    echo "PocketBase 安装完成！"
 }
 
 main

@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  pocketbase:
+    image: guojiank/pocketbase:0.23.12
+    environment:
+      - POCKETBASE_EMAIL=admin@admin.com
+      - POCKETBASE_PASSWORD=admin123456
+    ports:
+      - "8090:8090"

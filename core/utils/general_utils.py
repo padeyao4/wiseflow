@@ -3,6 +3,8 @@ import os
 import re
 # import jieba
 from loguru import logger
+import sys
+from core.utils.config import ConfigReader
 
 
 def isURL(string):
@@ -77,12 +79,20 @@ def extract_and_convert_dates(input_string):
     return None
 
 
-def get_logger(logger_name: str, logger_file_path: str):
-    level = 'DEBUG' if os.environ.get("VERBOSE", "").lower() in ["true", "1"] else 'INFO'
-    logger_file = os.path.join(logger_file_path, f"{logger_name}.log")
-    if not os.path.exists(logger_file_path):
-        os.makedirs(logger_file_path)
-    logger.add(logger_file, level=level, backtrace=True, diagnose=True, rotation="50 MB")
+def get_logger(name: str, project_dir: str = None):
+    config_reader = ConfigReader('config.ini')
+    verbose = config_reader.get('DEFAULT', 'VERBOSE', fallback=False)
+    
+    log_dir = os.path.join(project_dir, 'logs') if project_dir else 'logs'
+    os.makedirs(log_dir, exist_ok=True)
+    
+    log_file = os.path.join(log_dir, f'{name}.log')
+    
+    # 配置日志
+    logger.remove()  # 移除默认日志处理器
+    logger.add(sys.stderr, level="INFO" if not verbose else "DEBUG")  # 根据 VERBOSE 设置控制台日志级别
+    logger.add(log_file, rotation="10 MB", level="DEBUG")  # 文件日志始终保持 DEBUG
+    
     return logger
 
 """

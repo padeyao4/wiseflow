@@ -1,24 +1,32 @@
-from llms.openai_wrapper import openai_llm as llm
-# from core.llms.siliconflow_wrapper import sfa_llm
-from utils.general_utils import is_chinese, extract_and_convert_dates, extract_urls
-from loguru import logger
-from utils.pb_api import PbTalker
-import os, re
+import re
 from datetime import datetime
+from typing import Tuple
 from urllib.parse import urlparse
-import json_repair
 
+import json_repair
+from core.llms.openai_wrapper import openai_llm as llm
+from loguru import logger
+from core.utils.general_utils import (extract_and_convert_dates, extract_urls,
+                                 is_chinese)
+from core.utils.pb_api import PbTalker
+from core.utils.config import ConfigReader
+
+# 使用 ConfigReader 替代 configparser
+config_reader = ConfigReader('config.ini')
 
 class GeneralInfoExtractor:
-    def __init__(self, pb: PbTalker, _logger: logger) -> None:
+    def __init__(self, pb: PbTalker, _logger: any) -> None:
         self.pb = pb
         self.logger = _logger
-        self.model = os.environ.get("PRIMARY_MODEL", "Qwen/Qwen2.5-7B-Instruct") # better to use "Qwen/Qwen2.5-14B-Instruct"
-        self.secondary_model = os.environ.get("SECONDARY_MODEL", 'Qwen/Qwen2.5-7B-Instruct') # better to use ''
+        
+        # 使用 config_reader 读取模型配置
+        self.model = config_reader.get('DEFAULT', 'PRIMARY_MODEL', fallback="Qwen/Qwen2.5-7B-Instruct")
+        self.secondary_model = config_reader.get('DEFAULT', 'SECONDARY_MODEL', fallback='Qwen/Qwen2.5-7B-Instruct')
 
-        # collect tags user set in pb database and determin the system prompt language based on tags
+        # 从数据库中读取用户设置的标签，并根据标签确定系统提示语言
         focus_data = pb.read(collection_name='focus_points', filter=f'activated=True')
         if not focus_data:
+            # 如果没有激活的标签，提示用户输入
             self.logger.info('no activated tag found, will ask user to create one')
             focus = input('It seems you have not set any focus point, WiseFlow need the specific focus point to guide the following info extract job.'
                           'so please input one now. describe what info you care about shortly: ')
@@ -26,7 +34,7 @@ class GeneralInfoExtractor:
             focus_data.append({"focuspoint": focus, "explanation": explanation,
                                "id": pb.add('focus_points', {"focuspoint": focus, "explanation": explanation})})
 
-        # self.focus_list = [item["focuspoint"] for item in focus_data]
+        # 创建焦点字典
         self.focus_dict = {item["focuspoint"]: item["id"] for item in focus_data}
         focus_statement = ''
         for item in focus_data:
@@ -36,7 +44,9 @@ class GeneralInfoExtractor:
             if expl:
                 focus_statement = f"{focus_statement}解释：{expl}\n"
 
+        # 根据焦点声明设置提取信息的提示
         if is_chinese(focus_statement):
+            # 中文提示
             self.get_info_prompt = f'''作为信息提取助手，你的任务是从给定的网页文本中提取与以下用户兴趣点相关的内容。兴趣点列表及其解释如下：
 
 {focus_statement}\n
@@ -62,6 +72,7 @@ url2
 ...
 """'''
         else:
+            # 英文提示
             self.get_info_prompt = f'''As an information extraction assistant, your task is to extract content related to the following user focus points from the given web page text. The list of focus points and their explanations is as follows:
 
 {focus_statement}\n
@@ -87,7 +98,7 @@ url2
 ...
 """'''
 
-    async def get_author_and_publish_date(self, text: str) -> tuple[str, str]:
+    async def get_author_and_publish_date(self, text: str) -> Tuple[str, str]:
         if not text:
             return "NA", "NA"
 
@@ -176,7 +187,7 @@ url2
 
         system = '''判断给定的信息是否与网页文本相符。信息将用标签<info></info>包裹，网页文本则用<text></text>包裹。请遵循如下工作流程:
 1、尝试找出网页文本中所有与信息对应的文本片段（可能有多处）；
-2、基于这些片段给出是否相符的最终结论，最终结论仅为“是”或“否”'''
+2、基于这些片段给出是否相符的最终结论，最终结论仅为"是"或"否"'''
         suffix = '先输出找到的所有文本片段，再输出最终结论（仅为是或否）'
 
         final = []

@@ -1,14 +1,15 @@
-import os
-from openai import OpenAI
-from openai import RateLimitError
 import asyncio
+from openai import OpenAI, RateLimitError
 
+from core.utils.config import ConfigReader
 
-base_url = os.environ.get('LLM_API_BASE', "")
-token = os.environ.get('LLM_API_KEY', "")
+# 读取配置文件
+config_reader = ConfigReader('config.ini')
+base_url = config_reader.get('DEFAULT', 'LLM_API_BASE', fallback="")
+token = config_reader.get('DEFAULT', 'LLM_API_KEY', fallback="")
 
 if not base_url and not token:
-    raise ValueError("LLM_API_BASE or LLM_API_KEY must be set")
+    raise ValueError("LLM_API_BASE or LLM_API_KEY must be set in config.ini")
 elif base_url and not token:
     client = OpenAI(base_url=base_url, api_key="not_use")
 elif not base_url and token:

@@ -8,5 +8,5 @@ __pycache__
 .venv/
 pb/pb_data/
 pb/pocketbase
-core/docker_dir/
-core/work_dir/
+work_dir/
+*.log
